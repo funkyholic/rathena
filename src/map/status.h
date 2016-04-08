@@ -9,6 +9,8 @@ struct mob_data;
 struct pet_data;
 struct homun_data;
 struct mercenary_data;
+struct elemental_data;
+struct npc_data;
 struct status_change;
 
 /**
@@ -739,6 +741,20 @@ typedef enum sc_type {
 	SC_PROMOTE_HEALTH_RESERCH,
 	SC_ENERGY_DRINK_RESERCH,
 	SC_NORECOVER_STATE,
+
+	/**
+	 * Summoner
+	 */
+	SC_SUHIDE,
+	SC_SU_STOOP,
+	SC_SPRITEMABLE,
+	SC_CATNIPPOWDER,
+	SC_SV_ROOTTWIST,
+	SC_BITESCAR,
+	SC_ARCLOUSEDASH,
+	SC_TUNAPARTY,
+	SC_SHRIMP,
+	SC_FRESHSHRIMP,
 
 #ifdef RENEWAL
 	SC_EXTREMITYFIST2, //! NOTE: This SC should be right before SC_MAX, so it doesn't disturb if RENEWAL is disabled
@@ -1606,6 +1622,7 @@ enum si_type {
 	SI_LIMIT_POWER_BOOSTER = 867,
 	SI_TIME_ACCESSORY = 872,
 	SI_EP16_DEF = 873,
+	SI_NORMAL_ATKED_SP = 874,
 	SI_BODYSTATE_STONECURSE = 875,
 	SI_BODYSTATE_FREEZING = 876,
 	SI_BODYSTATE_STUN = 877,
@@ -1623,6 +1640,10 @@ enum si_type {
 	SI_HEALTHSTATE_BLOODING = 889,
 	SI_HEALTHSTATE_HEAVYPOISON = 890,
 	SI_HEALTHSTATE_FEAR = 891,
+	SI_CHERRY_BLOSSOM_CAKE = 892,
+	SI_SU_STOOP = 893,
+	SI_CATNIPPOWDER = 894,
+	SI_SV_ROOTTWIST = 896,
 	SI_ATTACK_PROPERTY_NOTHING = 897,
 	SI_ATTACK_PROPERTY_WATER = 898,
 	SI_ATTACK_PROPERTY_GROUND = 899,
@@ -1643,6 +1664,14 @@ enum si_type {
 	SI_RESIST_PROPERTY_DARKNESS = 914,
 	SI_RESIST_PROPERTY_TELEKINESIS = 915,
 	SI_RESIST_PROPERTY_UNDEAD = 916,
+	SI_BITESCAR = 917,
+	SI_ARCLOUSEDASH = 918,
+	SI_TUNAPARTY = 919,
+	SI_SHRIMP = 920,
+	SI_FRESHSHRIMP = 921,
+	SI_PERIOD_RECEIVEITEM = 922,
+	SI_PERIOD_PLUSEXP = 923,
+	SI_PERIOD_PLUSJOBEXP = 924,
 	SI_RUNEHELM = 925,
 	SI_HELM_VERKANA = 926,
 	SI_HELM_RHYDO = 927,
@@ -1651,6 +1680,10 @@ enum si_type {
 	SI_HELM_ISIA = 930,
 	SI_HELM_ASIR = 931,
 	SI_HELM_URJ = 932,
+	SI_SUHIDE = 933,
+	SI_DORAM_BUF_01 = 935,
+	SI_DORAM_BUF_02 = 936,
+	SI_SPRITEMABLE = 937,
 	SI_MAX,
 };
 
@@ -1875,6 +1908,15 @@ enum e_status_change_start_flags {
 	SCSTART_NOICON     = 0x10, /// Status icon won't be sent to client
 };
 
+/// Enum for status_change_clear_buffs
+enum e_status_change_clear_buffs_flags {
+	SCCB_BUFFS        = 0x01,
+	SCCB_DEBUFFS      = 0x02,
+	SCCB_REFRESH      = 0x04,
+	SCCB_CHEM_PROTECT = 0x08,
+	SCCB_LUXANIMA     = 0x10,
+};
+
 ///Enum for bonus_script's flag [Cydh]
 enum e_bonus_script_flags {
 	BSF_REM_ON_DEAD				= 0x001, ///< Removed when dead
@@ -2064,6 +2106,8 @@ int StatusIconChangeTable[SC_MAX];          /// status -> "icon" (icon is a bit 
 int status_damage(struct block_list *src,struct block_list *target,int64 dhp,int64 dsp, int walkdelay, int flag);
 //Define for standard HP damage attacks.
 #define status_fix_damage(src, target, hp, walkdelay) status_damage(src, target, hp, 0, walkdelay, 0)
+//Define for standard SP damage attacks.
+#define status_fix_spdamage(src, target, sp, walkdelay) status_damage(src, target, 0, sp, walkdelay, 0)
 //Define for standard HP/SP damage triggers.
 #define status_zap(bl, hp, sp) status_damage(NULL, bl, hp, sp, 0, 1)
 //Define for standard HP/SP skill-related cost triggers (mobs require no HP/SP to use skills)
@@ -2129,6 +2173,8 @@ unsigned char status_calc_attack_element(struct block_list *bl, struct status_ch
 #define status_get_class_(bl) status_get_status_data(bl)->class_
 #define status_get_size(bl) status_get_status_data(bl)->size
 #define status_get_mode(bl) status_get_status_data(bl)->mode
+#define status_has_mode(status,md) ((status)->mode&(md))
+#define status_bl_has_mode(bl,md) status_has_mode(status_get_status_data((bl)),(md))
 
 #define status_get_homstr(bl) (status->str + ((TBL_HOM*)bl)->homunculus.str_value)
 #define status_get_homagi(bl) (status->agi + ((TBL_HOM*)bl)->homunculus.agi_value)
@@ -2140,7 +2186,7 @@ unsigned char status_calc_attack_element(struct block_list *bl, struct status_ch
 int status_get_party_id(struct block_list *bl);
 int status_get_guild_id(struct block_list *bl);
 int status_get_emblem_id(struct block_list *bl);
-int status_get_race2(struct block_list *bl);
+enum e_race2 status_get_race2(struct block_list *bl);
 
 struct view_data *status_get_viewdata(struct block_list *bl);
 void status_set_viewdata(struct block_list *bl, int class_);
@@ -2163,7 +2209,7 @@ int kaahi_heal_timer(int tid, unsigned int tick, int id, intptr_t data);
 int status_change_timer(int tid, unsigned int tick, int id, intptr_t data);
 int status_change_timer_sub(struct block_list* bl, va_list ap);
 int status_change_clear(struct block_list* bl, int type);
-void status_change_clear_buffs(struct block_list* bl, int type);
+void status_change_clear_buffs(struct block_list* bl, uint8 type);
 void status_change_clear_onChangeMap(struct block_list *bl, struct status_change *sc);
 
 #define status_calc_bl(bl, flag) status_calc_bl_(bl, (enum scb_flag)(flag), SCO_NONE)

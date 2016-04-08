@@ -56,7 +56,7 @@
 121,0x97,    ,  0, 1,1000,enemy, 0x28006	//HT_FREEZINGTRAP
 122,0x8f,    ,  0, 1,1000,enemy, 0x8006	//HT_BLASTMINE
 123,0x98,    ,  0, 1,1000,enemy, 0x8006	//HT_CLAYMORETRAP
-125,0x99,    ,  0, 1,1000,all,   0x28000	//HT_TALKIEBOX
+125,0x99,    ,  0, 1,1000,all,   0x28040	//HT_TALKIEBOX
 140,0x92,    , -1, 1,1000,enemy, 0x8000	//AS_VENOMDUST
 220,0xb0,    ,  0, 0,  -1,all,   0x8002	//RG_GRAFFITI
 229,0xb1,    ,  0, 1, 500,enemy, 0x006	//AM_DEMONSTRATION
@@ -110,7 +110,7 @@
 
 //706,0xfd,    ,  0, 0,1000,all, 0x000	//NPC_VENOMFOG
 
-2044,0xca,    ,  0, 2,3000,all,   0x018	//AB_EPICLESIS
+2044,0xca,    ,  0, 2,1000,all,   0x018	//AB_EPICLESIS
 
 2032,0xe1,    ,  2, 0,1000,enemy, 0x8018	//GC_POISONSMOKE
 
@@ -160,8 +160,8 @@
 2482,0xe6,0x7f, -1, 1, 300,enemy, 0xC000	//GN_WALLOFTHORN
 2484,0x86,    ,  0, 1, 100,enemy, 0x080	//GN_CRAZYWEED_ATK
 2485,0xe7,    ,  0, 2,2000,enemy, 0x8098	//GN_DEMONIC_FIRE
-2487,0xe8,    ,  2, 0,  -1,enemy, 0x2000	//GN_FIRE_EXPANSION_SMOKE_POWDER
-2488,0xe9,    ,  2, 0,  -1,enemy, 0x2000	//GN_FIRE_EXPANSION_TEAR_GAS
+2487,0xe8,    ,  2, 0,  -1,all,   0x2000	//GN_FIRE_EXPANSION_SMOKE_POWDER
+2488,0xe9,    ,  2, 0,  -1,all,   0x2000	//GN_FIRE_EXPANSION_TEAR_GAS
 2490,0xea,    ,  0, 1,1000,enemy, 0xC002	//GN_HELLS_PLANT
 
 2555,0x104,   ,  0, 1:2:2:3:3,500,enemy,0x6	//RL_B_TRAP
@@ -176,6 +176,10 @@
 5006,0x101,   ,  0, 3, 500,enemy, 0x018	//NC_MAGMA_ERUPTION
 5010,0x91,    ,  0, 1,1000,all,   0x002	//SC_ESCAPE
 5013,0x102,   ,  3, 0,  -1,all,   0x2002	//LG_KINGS_GRACE
+
+5027,0x106,   ,  1:1:2:2:3, 0,  -1,enemy, 0x2010 // SU_CN_POWDERING
+5028,0x86,    ,  0, 1, 500,enemy, 0x10 // SU_CN_METEOR
+5029,0x107,   ,  0, 0,1000,enemy, 0x10 // SU_SV_ROOTTWIST
 
 8020,0xf5,    ,  3, 0,2300:2100:1900:1700:1500,enemy,   0x018	//MH_POISON_MIST
 8033,0x7e,    ,  0, 0,  -1,all,   0x003	//MH_STEINWAND

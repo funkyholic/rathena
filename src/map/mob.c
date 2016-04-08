@@ -304,7 +304,7 @@ struct mob_data* mob_spawn_dataset(struct spawn_data *data)
 		md->special_state.size = data->state.size;
 	if (data->eventname[0] && strlen(data->eventname) >= 4)
 		memcpy(md->npc_event, data->eventname, 50);
-	if(md->db->status.mode&MD_LOOTER)
+	if(status_has_mode(&md->db->status,MD_LOOTER))
 		md->lootitems = (struct s_mob_lootitem *)aCalloc(LOOTITEM_SIZE,sizeof(struct s_mob_lootitem));
 	md->spawn_timer = INVALID_TIMER;
 	md->deletetimer = INVALID_TIMER;
@@ -360,9 +360,9 @@ int mob_get_random_id(int type, int flag, int lv)
 		mob_is_clone(mob_id) ||
 		(flag&0x01 && (entry->rate < 1000000 && entry->rate <= rnd() % 1000000)) ||
 		(flag&0x02 && lv < mob->lv) ||
-		(flag&0x04 && mob->status.mode&MD_BOSS) ||
+		(flag&0x04 && status_has_mode(&mob->status,MD_BOSS) ) ||
 		(flag&0x08 && mob->spawn[0].qty < 1) ||
-		(flag&0x10 && mob->status.mode&MD_PLANT)
+		(flag&0x10 && status_has_mode(&mob->status,MD_PLANT) )
 	) && (i++) < MAX_MOB_DB && msummon->count > 1);
 
 	if (i >= MAX_MOB_DB && &msummon->list[0])  // no suitable monster found, use fallback for given list
@@ -996,7 +996,7 @@ int mob_spawn (struct mob_data *md)
 //	md->master_id = 0;
 	md->master_dist = 0;
 
-	md->state.aggressive = md->status.mode&MD_ANGRY?1:0;
+	md->state.aggressive = status_has_mode(&md->status,MD_ANGRY)?1:0;
 	md->state.skillstate = MSS_IDLE;
 	md->next_walktime = tick+rnd()%1000+MIN_RANDOMWALKTIME;
 	md->last_linktime = tick;
@@ -1121,7 +1121,7 @@ static int mob_ai_sub_hard_activesearch(struct block_list *bl,va_list ap)
 	{
 	case BL_PC:
 		if (((TBL_PC*)bl)->state.gangsterparadise &&
-			!(status_get_mode(&md->bl)&MD_BOSS))
+			!status_has_mode(&md->status,MD_BOSS))
 			return 0; //Gangster paradise protection.
 	default:
 		if (battle_config.hom_setting&HOMSET_FIRST_TARGET &&
@@ -1270,7 +1270,7 @@ static int mob_ai_sub_hard_slavemob(struct mob_data *md,unsigned int tick)
 	if (bl->prev == NULL)
 		return 0; //Master not on a map? Could be warping, do not process.
 
-	if(status_get_mode(&md->bl)&MD_CANMOVE)
+	if(status_has_mode(&md->status,MD_CANMOVE))
 	{	//If the mob can move, follow around. [Check by Skotlex]
 		int old_dist;
 
@@ -1365,7 +1365,7 @@ int mob_unlocktarget(struct mob_data *md, unsigned int tick)
 	default:
 		mob_stop_attack(md);
 		mob_stop_walking(md,1); //Stop chasing.
-		if (md->status.mode&MD_ANGRY && !md->state.aggressive)
+		if (status_has_mode(&md->status,MD_ANGRY) && !md->state.aggressive)
 			md->state.aggressive = 1; //Restore angry state when switching to idle
 		md->state.skillstate = MSS_IDLE;
 		if(battle_config.mob_ai&0x8) //Walk instantly after dropping target
@@ -1392,35 +1392,74 @@ int mob_unlocktarget(struct mob_data *md, unsigned int tick)
 int mob_randomwalk(struct mob_data *md,unsigned int tick)
 {
 	const int d=7;
-	int i,c,r,dx,dy;
+	int i,c,r,rdir,dx,dy,max;
 	int speed;
 
 	nullpo_ret(md);
 
 	if(DIFF_TICK(md->next_walktime,tick)>0 ||
-	   (status_get_mode(&md->bl)&MD_NORANDOM_WALK) ||
+	   status_has_mode(&md->status,MD_NORANDOM_WALK) ||
 	   !unit_can_move(&md->bl) ||
-	   !(status_get_mode(&md->bl)&MD_CANMOVE))
+	   !status_has_mode(&md->status,MD_CANMOVE))
 		return 0;
 
 	r=rnd();
+	rdir=rnd()%4; // Randomize direction in which we iterate to prevent monster cluttering up in one corner
 	dx=r%(d*2+1)-d;
 	dy=r/(d*2+1)%(d*2+1)-d;
-	for(i=0;i<d*d;i++){	// Search of a movable place
+	max=(d*2+1)*(d*2+1);
+	for(i=0;i<max;i++){	// Search of a movable place
 		int x = dx + md->bl.x;
 		int y = dy + md->bl.y;
-		if(((x != md->bl.x) || (y != md->bl.y)) && map_getcell(md->bl.m,x,y,CELL_CHKPASS) && unit_walktoxy(&md->bl,x,y,8)){
+		if(((x != md->bl.x) || (y != md->bl.y)) && map_getcell(md->bl.m,x,y,CELL_CHKPASS) && unit_walktoxy(&md->bl,x,y,0)){
 			break;
 		}
-		// Could not move to cell, try the next one
-		if (++dx>d) {
-			dx=-d;
-			if (++dy>d) {
-				dy=-d;
+		// Could not move to cell, try the 7th cell in direction randomly decided by rdir
+		// We don't move step-by-step because this will make monster stick to the walls
+		switch(rdir) {
+		case 0:
+			dx += d;
+			if (dx > d) {
+				dx -= d*2+1;
+				dy += d;
+				if (dy > d) {
+					dy -= d*2+1;
+				}
 			}
+			break;
+		case 1:
+			dx -= d;
+			if (dx < -d) {
+				dx += d*2+1;
+				dy -= d;
+				if (dy < -d) {
+					dy += d*2+1;
+				}
+			}
+			break;
+		case 2:
+			dy += d;
+			if (dy > d) {
+				dy -= d*2+1;
+				dx += d;
+				if (dx > d) {
+					dx -= d*2+1;
+				}
+			}
+			break;
+		case 3:
+			dy -= d;
+			if (dy < -d) {
+				dy += d*2+1;
+				dx -= d;
+				if (dx < -d) {
+					dx += d*2+1;
+				}
+			}
+			break;
 		}
 	}
-	if(i==d*d){
+	if(i==max){
 		// None of the available cells worked, try again next interval
 		if(battle_config.mob_stuck_warning) {
 			md->move_fail_count++;
@@ -1722,7 +1761,8 @@ static bool mob_ai_sub_hard(struct mob_data *md, unsigned int tick)
 	{
 		if (DIFF_TICK(md->ud.canmove_tick, tick) <= MIN_MOBTHINKTIME && DIFF_TICK(md->ud.canact_tick, tick) < -MIN_MOBTHINKTIME*IDLE_SKILL_INTERVAL) 
 		{ //Only use skill if able to walk on next tick and not used a skill the last second
-			mobskill_use(md, tick, -1);
+			if (mobskill_use(md, tick, -1))
+				return true;
 		}
 	}
 
@@ -1808,7 +1848,7 @@ static int mob_ai_sub_lazy(struct mob_data *md, va_list args)
 
 	if(battle_config.mob_active_time &&
 		md->last_pcneartime &&
- 		!(md->status.mode&MD_BOSS) &&
+ 		!status_has_mode(&md->status,MD_BOSS) &&
 		DIFF_TICK(tick,md->last_thinktime) > MIN_MOBTHINKTIME)
 	{
 		if (DIFF_TICK(tick,md->last_pcneartime) < battle_config.mob_active_time)
@@ -1818,7 +1858,7 @@ static int mob_ai_sub_lazy(struct mob_data *md, va_list args)
 
 	if(battle_config.boss_active_time &&
 		md->last_pcneartime &&
-		(md->status.mode&MD_BOSS) &&
+		status_has_mode(&md->status,MD_BOSS) &&
 		DIFF_TICK(tick,md->last_thinktime) > MIN_MOBTHINKTIME)
 	{
 		if (DIFF_TICK(tick,md->last_pcneartime) < battle_config.boss_active_time)
@@ -1836,7 +1876,7 @@ static int mob_ai_sub_lazy(struct mob_data *md, va_list args)
 		return 0;
 	}
 
-	if( DIFF_TICK(md->next_walktime,tick) < 0 && (status_get_mode(&md->bl)&MD_CANMOVE) && unit_can_move(&md->bl) )
+	if( DIFF_TICK(md->next_walktime,tick) < 0 && status_has_mode(&md->status,MD_CANMOVE) && unit_can_move(&md->bl) )
 	{
 		if( rnd()%1000 < MOB_LAZYMOVEPERC(md) )
 			mob_randomwalk(md, tick);
@@ -2116,7 +2156,7 @@ void mob_log_damage(struct mob_data *md, struct block_list *src, int damage)
 	}
 
 	//Self damage increases tap bonus
-	if (!char_id && src->id == md->bl.id) {
+	if (!char_id && src->id == md->bl.id && damage > 0) {
 		char_id = src->id;
 		flag = MDLF_SELF;
 	}
@@ -2415,11 +2455,13 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 #ifdef RENEWAL_EXP
 						int rate = pc_level_penalty_mod(tmpsd[i], md->level, md->status.class_, md->status.mode, 1);
 						if (rate != 100) {
-							base_exp = (unsigned int)cap_value(apply_rate(base_exp, rate), 1, UINT_MAX);
-							job_exp = (unsigned int)cap_value(apply_rate(job_exp, rate), 1, UINT_MAX);
+							if (base_exp)
+								base_exp = (unsigned int)cap_value(apply_rate(base_exp, rate), 1, UINT_MAX);
+							if (job_exp)
+								job_exp = (unsigned int)cap_value(apply_rate(job_exp, rate), 1, UINT_MAX);
 						}
 #endif
-						pc_gainexp(tmpsd[i], &md->bl, base_exp, job_exp, false);
+						pc_gainexp(tmpsd[i], &md->bl, base_exp, job_exp, 0);
 					}
 				}
 				if(zeny) // zeny from mobs [Valaris]
@@ -2615,7 +2657,7 @@ int mob_dead(struct mob_data *md, struct block_list *src, int type)
 
 		clif_mvp_effect(mvp_sd);
 		clif_mvp_exp(mvp_sd,mexp);
-		pc_gainexp(mvp_sd, &md->bl, mexp,0, false);
+		pc_gainexp(mvp_sd, &md->bl, mexp,0, 0);
 		log_mvp[1] = mexp;
 
 		if( !(map[m].flag.nomvploot || type&1) ) {
@@ -2949,7 +2991,7 @@ int mob_class_change (struct mob_data *md, int mob_id)
 	for(i=0,c=tick-MOB_MAX_DELAY;i<MAX_MOBSKILL;i++)
 		md->skilldelay[i] = c;
 
-	if (md->lootitems == NULL && md->db->status.mode&MD_LOOTER)
+	if (md->lootitems == NULL && status_has_mode(&md->db->status,MD_LOOTER))
 		md->lootitems = (struct s_mob_lootitem *)aCalloc(LOOTITEM_SIZE,sizeof(struct s_mob_lootitem));
 
 	//Targets should be cleared no morph
@@ -3111,15 +3153,15 @@ int mob_summonslave(struct mob_data *md2,int *value,int amount,uint16 skill_id)
 		{
 			switch (battle_config.slaves_inherit_mode) {
 			case 1: //Always aggressive
-				if (!(md->status.mode&MD_AGGRESSIVE))
+				if (!status_has_mode(&md->status,MD_AGGRESSIVE))
 					sc_start4(NULL,&md->bl, SC_MODECHANGE, 100,1,0, MD_AGGRESSIVE, 0, 0);
 				break;
 			case 2: //Always passive
-				if (md->status.mode&MD_AGGRESSIVE)
+				if (status_has_mode(&md->status,MD_AGGRESSIVE))
 					sc_start4(NULL,&md->bl, SC_MODECHANGE, 100,1,0, 0, MD_AGGRESSIVE, 0);
 				break;
 			default: //Copy master.
-				if (md2->status.mode&MD_AGGRESSIVE)
+				if (status_has_mode(&md2->status,MD_AGGRESSIVE))
 					sc_start4(NULL,&md->bl, SC_MODECHANGE, 100,1,0, MD_AGGRESSIVE, 0, 0);
 				else
 					sc_start4(NULL,&md->bl, SC_MODECHANGE, 100,1,0, 0, MD_AGGRESSIVE, 0);
@@ -3267,7 +3309,7 @@ int mobskill_use(struct mob_data *md, unsigned int tick, int event)
 	nullpo_ret(md);
 	nullpo_ret(ms = md->db->skill);
 
-	if (!battle_config.mob_skill_rate || md->ud.skilltimer != INVALID_TIMER || !md->db->maxskill || (status_get_mode(&md->bl)&MD_NOCAST_SKILL))
+	if (!battle_config.mob_skill_rate || md->ud.skilltimer != INVALID_TIMER || !md->db->maxskill || status_has_mode(&md->status,MD_NOCAST_SKILL))
 		return 0;
 
 	if (event == -1 && DIFF_TICK(md->ud.canact_tick, tick) > 0)
@@ -3362,7 +3404,7 @@ int mobskill_use(struct mob_data *md, unsigned int tick, int event)
 			continue; //Skill requisite failed to be fulfilled.
 
 		//Execute skill
-		skill_target = (md->db->status.mode&MD_RANDOMTARGET) ? MST_RANDOM : ms[i].target;
+		skill_target = status_has_mode(&md->db->status,MD_RANDOMTARGET) ? MST_RANDOM : ms[i].target;
 		if (skill_get_casttype(ms[i].skill_id) == CAST_GROUND)
 		{	//Ground skill.
 			short x, y;
@@ -3918,7 +3960,7 @@ static bool mob_parse_dbrow(char** str)
 	if (!battle_config.monster_active_enable)
 		status->mode &= ~MD_AGGRESSIVE;
 
-	if( status->mode&MD_BOSS )
+	if( status_has_mode(status,MD_BOSS) )
 		status->class_ = CLASS_BOSS;
 	else if( mob_is_guardian(mob_id) )
 		status->class_ = CLASS_GUARDIAN;
@@ -4614,7 +4656,7 @@ static bool mob_readdb_race2(char* fields[], int columns, int current)
 			ShowWarning("mob_readdb_race2: Unknown mob id %d for race2 %d.\n", mobid, race);
 			continue;
 		}
-		mob_db_data[mobid]->race2 = race;
+		mob_db_data[mobid]->race2 = (enum e_race2)race;
 	}
 	return true;
 }
@@ -4757,35 +4799,36 @@ static void mob_drop_ratio_adjust(void){
 				ratemin = battle_config.item_drop_treasure_min;
 				ratemax = battle_config.item_drop_treasure_max;
 			}else{
+				bool is_boss = status_has_mode(&mob->status,MD_BOSS);
 				is_treasurechest = false;
 
 				 // Added suport to restrict normal drops of MVP's [Reddozen]
 				switch( id->type ){
 					case IT_HEALING:
-						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_heal_boss : battle_config.item_rate_heal;
+						rate_adjust = is_boss ? battle_config.item_rate_heal_boss : battle_config.item_rate_heal;
 						ratemin = battle_config.item_drop_heal_min;
 						ratemax = battle_config.item_drop_heal_max;
 						break;
 					case IT_USABLE:
 					case IT_CASH:
-						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_use_boss : battle_config.item_rate_use;
+						rate_adjust = is_boss ? battle_config.item_rate_use_boss : battle_config.item_rate_use;
 						ratemin = battle_config.item_drop_use_min;
 						ratemax = battle_config.item_drop_use_max;
 						break;
 					case IT_WEAPON:
 					case IT_ARMOR:
 					case IT_PETARMOR:
-						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_equip_boss : battle_config.item_rate_equip;
+						rate_adjust = is_boss ? battle_config.item_rate_equip_boss : battle_config.item_rate_equip;
 						ratemin = battle_config.item_drop_equip_min;
 						ratemax = battle_config.item_drop_equip_max;
 						break;
 					case IT_CARD:
-						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_card_boss : battle_config.item_rate_card;
+						rate_adjust = is_boss ? battle_config.item_rate_card_boss : battle_config.item_rate_card;
 						ratemin = battle_config.item_drop_card_min;
 						ratemax = battle_config.item_drop_card_max;
 						break;
 					default:
-						rate_adjust = (mob->status.mode&MD_BOSS) ? battle_config.item_rate_common_boss : battle_config.item_rate_common;
+						rate_adjust = is_boss ? battle_config.item_rate_common_boss : battle_config.item_rate_common;
 						ratemin = battle_config.item_drop_common_min;
 						ratemax = battle_config.item_drop_common_max;
 						break;
@@ -4871,8 +4914,8 @@ static void mob_skill_db_set_single(struct s_mob_skill *skill) {
 			mob = mob_db(i);
 			if (mob == mob_dummy)
 				continue;
-			if (   (!(id&1) && mob->status.mode&MD_BOSS) // Bosses
-				|| (!(id&2) && !(mob->status.mode&MD_BOSS)) // Normal monsters
+			if (   (!(id&1) && status_has_mode(&mob->status,MD_BOSS)) // Bosses
+				|| (!(id&2) && !status_has_mode(&mob->status,MD_BOSS)) // Normal monsters
 				)
 				continue;
 			mob_skill_db_set_single_sub(mob, skill);

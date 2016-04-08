@@ -1736,6 +1736,31 @@ enum e_skill {
 	LG_KINGS_GRACE,
 	ALL_FULL_THROTTLE,
 
+	SU_BASIC_SKILL = 5018,
+	SU_BITE,
+	SU_HIDE,
+	SU_SCRATCH,
+	SU_STOOP,
+	SU_LOPE,
+	SU_SPRITEMABLE,
+	SU_POWEROFLAND,
+	SU_SV_STEMSPEAR,
+	SU_CN_POWDERING,
+	SU_CN_METEOR,
+	SU_SV_ROOTTWIST,
+	SU_SV_ROOTTWIST_ATK,
+	SU_POWEROFLIFE,
+	SU_SCAROFTAROU,
+	SU_PICKYPECK,
+	SU_PICKYPECK_DOUBLE_ATK,
+	SU_ARCLOUSEDASH,
+	SU_LUNATICCARROTBEAT,
+	SU_POWEROFSEA,
+	SU_TUNABELLY,
+	SU_TUNAPARTY,
+	SU_BUNCHOFSHRIMP,
+	SU_FRESHSHRIMP,
+
 	HLIF_HEAL = 8001,
 	HLIF_AVOID,
 	HLIF_BRAIN,
@@ -2006,6 +2031,9 @@ enum s_skill_unit_id {
 	UNT_B_TRAP,
 	UNT_FIRE_RAIN,
 
+	UNT_CATNIPPOWDER,
+	UNT_SV_ROOTTWIST,
+
 	/**
 	 * Guild Auras
 	 **/
@@ -2080,7 +2108,7 @@ int skill_elementalanalysis(struct map_session_data *sd, int n, uint16 skill_lv,
 int skill_changematerial(struct map_session_data *sd, int n, unsigned short *item_list);	// Genetic Change Material.
 int skill_get_elemental_type(uint16 skill_id, uint16 skill_lv);
 
-bool skill_is_combo(uint16 skill_id);
+int skill_is_combo(uint16 skill_id);
 void skill_combo_toogle_inf(struct block_list* bl, uint16 skill_id, int inf);
 void skill_combo(struct block_list* src,struct block_list *dsrc, struct block_list *bl, uint16 skill_id, uint16 skill_lv, int tick);
 
